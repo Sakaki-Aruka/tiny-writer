@@ -22,41 +22,55 @@ impl TinyWriter {
         }
     }
 
-    pub fn rendering_up(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
-        // without save current line to the "lines"
-        execute!(stdout(), Clear(ClearType::All), MoveTo(0, 0));
-        let height : usize = terminal.size().unwrap().height as usize;
-        let start : usize = max(0usize, self.y - 1 - height);
-        let end : usize = self.y - 3;
-        let mut count : usize = 0;
+    pub fn rendering(&mut self, terminal: Terminal<CrosstermBackend<Stdout>>) {
+        //
+    }
 
-        for index in start..end {
-            let temp = String::from(self.lines.get(index).unwrap());
-            execute!(stdout(), MoveTo(0, count as u16), Print(temp));
+    fn loop_flush(&mut self, start : u16, end : u16) {
+        let mut count : u16 = 0;
+        for index in start..=end {
+            execute!(stdout(), MoveTo(0, count), Clear(ClearType::CurrentLine), Print(self.lines.get(index as usize).unwrap()));
             count += 1;
         }
-        execute!(stdout(), MoveTo(self.lines.get(height - 1).unwrap().len() as u16, height as u16 - 1u16));
-        self.current = String::from(self.lines.get(end - 1).unwrap());
+    }
+
+    pub fn rendering_up(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
+        // without save current line to the "lines"
+        let height : usize = terminal.size().unwrap().height as usize;
+        let size : usize = self.lines.len();
+        let start : usize = if size > height { size - height } else { 0usize } ;
+        let end : usize = if 0 < self.y { self.y - 1 } else { 0 };
+
+        self.loop_flush(start as u16, end as u16);
+        self.current = String::from(self.lines.get(self.y - 1).unwrap());
         self.y = end;
+        execute!(stdout(), MoveTo(0, self.y as u16), Print(&self.current));
     }
 
     pub fn rendering_down(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
         let height : usize = terminal.size().unwrap().height as usize;
-
-        let start : usize = if self.y > height { self.y - height + 2 } else { 0usize };
+        let size : usize = self.lines.len();
+        let start : usize = if size + 2 > height { size - height + 1 } else { 0usize };
         let end : usize = self.y;
 
-        for index in start..=end {
-            let y : usize = self.y % height;
-            execute!(stdout(), MoveTo(0, y as u16), Clear(ClearType::CurrentLine),Print(self.lines.get(index).unwrap()));
-        }
-        execute!(stdout(), MoveTo(0, (self.y + 1) as u16));
+        self.loop_flush(start as u16, end as u16);
+        execute!(stdout(), MoveTo(0, (self.y + 1) as u16), Clear(ClearType::CurrentLine));
         self.current = String::new();
         self.y += 1;
     }
 
+    pub fn insert_new_line(&mut self, terminal : Terminal<CrosstermBackend<Stdout>>) {
+        //
+    }
+
     pub fn new_line(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
         self.lines.push(String::from(&self.current)); // add current line to the history
+        if self.lines.len() < terminal.size().unwrap().height as usize {
+            self.current = String::new();
+            self.y += 1;
+            execute!(stdout(), MoveTo(0, self.y as u16));
+            return;
+        }
         self.rendering_down(terminal);
     }
 
@@ -75,15 +89,16 @@ impl TinyWriter {
     }
 
     pub fn delete(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
-        let width : usize = terminal.size().unwrap().width as usize;
-        if self.current.is_empty() && self.current.len() < width {
+        if !self.current.is_empty() {
             self.current.pop();
+            let y : u16 = self.y as u16;
+            execute!(stdout(), MoveTo(0, y), Clear(ClearType::CurrentLine), Print(&self.current));
             return;
         }
 
+        if self.y < self.lines.len() { self.lines.remove(self.y); };
+        execute!(stdout(), Clear(ClearType::CurrentLine));
+        if self.y == 0 { return; };
         self.rendering_up(terminal);
-        let x : u16 = self.current.len() as u16;
-        let y : u16 = self.y as u16;
-        execute!(stdout(), MoveTo(x, y));
     }
 }

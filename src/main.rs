@@ -25,7 +25,7 @@ use crate::structs::tiny_writer_struct::TinyWriter;
 
 fn main() -> Result<()> {
     //
-    execute!(stdout(), EnterAlternateScreen)?;
+    execute!(stdout(), EnterAlternateScreen, MoveTo(0, 0))?;
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
@@ -34,6 +34,12 @@ fn main() -> Result<()> {
 
     'main_loop : loop {
         while let Event::Key(KeyEvent {code, modifiers, kind, ..}) = event::read()? {
+
+            //debug
+            if modifiers == KeyModifiers::CONTROL && code == KeyCode::Char('q') {
+                app.lines.push(String::from(&app.current));
+                break 'main_loop;
+            };
 
             match code {
                 KeyCode::Char(c) => {
@@ -44,15 +50,9 @@ fn main() -> Result<()> {
                 },
                 KeyCode::Backspace => {
                     app.delete(&terminal);
-                }
+                },
                 _ => ()
             }
-
-
-            //debug
-            if modifiers == KeyModifiers::CONTROL && code == KeyCode::Char('q') { break 'main_loop };
-
-            //break 'main_loop;
         }
     }
 
@@ -62,6 +62,7 @@ fn main() -> Result<()> {
     //debug
     dbg!(&app.lines);
     dbg!(&app.lines.len());
+    dbg!(&terminal.size().unwrap());
 
     Ok(())
 }
