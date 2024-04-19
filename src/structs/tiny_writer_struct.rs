@@ -1,5 +1,6 @@
 use crate::impls::writer_mode;
 
+#[derive(Clone)]
 pub struct TinyWriter {
     pub lines: Vec<String>,
     pub current : String,
