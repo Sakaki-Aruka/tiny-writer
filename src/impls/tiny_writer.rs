@@ -1,5 +1,7 @@
 use std::cmp::max;
+use std::collections::HashMap;
 use std::io::{Stdout, stdout};
+use std::iter::FusedIterator;
 use crossterm::cursor::MoveTo;
 use crossterm::execute;
 use crossterm::style::Print;
@@ -7,6 +9,7 @@ use crossterm::terminal::{Clear, ClearType};
 use ratatui::backend::{CrosstermBackend};
 use ratatui::Terminal;
 use crate::impls::{tiny_writer, writer_mode};
+use crate::impls::writer_mode::Mode;
 use crate::structs::tiny_writer_struct::TinyWriter;
 
 impl TinyWriter {
@@ -16,9 +19,9 @@ impl TinyWriter {
             current : String::new(),
             x : 0,
             y : 0,
-            folded : false,
             mode : writer_mode::Mode::Edit,
-            selected : Vec::new()
+            selected : Vec::new(),
+            folded_list : Vec::new(),
         }
     }
 
@@ -44,7 +47,7 @@ impl TinyWriter {
         self.loop_flush(start as u16, end as u16);
         self.current = String::from(self.lines.get(self.y - 1).unwrap());
         self.y = end;
-        execute!(stdout(), MoveTo(0, self.y as u16), Print(&self.current));
+        execute!(stdout(), MoveTo(0, self.y as u16), Clear(ClearType::CurrentLine), Print(&self.current));
     }
 
     pub fn rendering_down(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {
@@ -77,7 +80,10 @@ impl TinyWriter {
     pub fn input(&mut self, c : &char, terminal : &Terminal<CrosstermBackend<Stdout>>) {
         let width : usize = terminal.size().unwrap().width as usize;
         if self.current.len() + 1 > width {
+            self.folded_list.push(&self.y + 1);
             self.new_line(terminal);
+            self.current.push(*c);
+            execute!(stdout(), Print(&self.current));
             return;
         }
 
@@ -96,9 +102,36 @@ impl TinyWriter {
             return;
         }
 
+        if self.folded_list.contains(&self.y) { self.folded_list.remove(self.y); };
         if self.y < self.lines.len() { self.lines.remove(self.y); };
         execute!(stdout(), Clear(ClearType::CurrentLine));
         if self.y == 0 { return; };
         self.rendering_up(terminal);
+    }
+
+    pub fn change_mode(&mut self) {
+        match self.mode {
+            Mode::Edit => self.mode = Mode::Command,
+            Mode::Command => self.mode = Mode::Edit
+        }
+    }
+
+    pub fn expand_folds(&mut self) -> Vec<String> {
+        let mut result : Vec<String> = Vec::new();
+        let mut buffer : String = String::new();
+        for index in 0..self.lines.len() {
+            let value : String = String::from(self.lines.get(index).unwrap());
+            if !self.folded_list.contains(&index) && !self.folded_list.contains(&(index + 1)) {
+                if !buffer.is_empty() {
+                    result.push(buffer.clone());
+                    buffer.clear();
+                };
+                result.push(value);
+                continue;
+            } else { buffer.push_str(value.as_str()); };
+        }
+        if !buffer.is_empty() { result.push(buffer); };
+
+        return result;
     }
 }

@@ -37,7 +37,7 @@ fn main() -> Result<()> {
 
             //debug
             if modifiers == KeyModifiers::CONTROL && code == KeyCode::Char('q') {
-                app.lines.push(String::from(&app.current));
+                // app.lines.push(String::from(&app.current));
                 break 'main_loop;
             };
 
@@ -58,11 +58,16 @@ fn main() -> Result<()> {
 
     execute!(stdout(), LeaveAlternateScreen)?; // in debug, disable.
     disable_raw_mode()?;
+    app.lines.push(String::from(&app.current));
 
     //debug
     dbg!(&app.lines);
     dbg!(&app.lines.len());
     dbg!(&terminal.size().unwrap());
+    dbg!(&app.current);
+    dbg!(&app.y);
+    dbg!(&app.folded_list);
+    dbg!(&app.expand_folds());
 
     Ok(())
 }
