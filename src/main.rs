@@ -1,76 +1,67 @@
-mod impls;
-mod structs;
+mod app;
 
-use std::cmp::max;
-use std::fmt::format;
-use crossterm::{event::{self, KeyCode, KeyEventKind}, terminal::
-{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen, Clear, ClearType}, ExecutableCommand, execute, cursor, terminal};
-
-use ratatui::{
-    prelude::{CrosstermBackend, Stylize, Terminal},
-    widgets::Paragraph,
-};
-
-use std::io::{stdout, Result, stdin};
-use std::process::exit;
-use std::thread::sleep;
-use std::time;
-use crossterm::cursor::MoveTo;
-use crossterm::event::{Event, KeyEvent, KeyModifiers};
-use crossterm::style::{Print, PrintStyledContent};
-use crate::impls::actions::Actions;
-use crate::impls::writer_mode::Mode;
-use crate::structs::tiny_writer_struct::TinyWriter;
-
+use std::io::{stdout, Result};
+use crossterm::cursor::{MoveLeft, MoveRight, MoveTo, MoveToNextLine, MoveToPreviousLine};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, read};
+use crossterm::{event, execute};
+use crossterm::style::Print;
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnableLineWrap, EnterAlternateScreen, LeaveAlternateScreen, ScrollDown, ScrollUp};
+use ratatui::prelude::CrosstermBackend;
+use ratatui::Terminal;
+use crate::app::App;
 
 fn main() -> Result<()> {
-    //
-    execute!(stdout(), EnterAlternateScreen, MoveTo(0, 0))?;
+    execute!(stdout(), EnterAlternateScreen, EnableLineWrap,MoveTo(0, 0));
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
+    enable_raw_mode()?;
 
-    let mut app : TinyWriter = TinyWriter::new();
+    let mut app: App = App::new();
 
-    'main_loop : loop {
-        while let Event::Key(KeyEvent {code, modifiers, kind, ..}) = event::read()? {
+    let mut terminal_width_buffer: u16 = terminal.size()?.width;
+    let mut terminal_height_buffer: u16 = terminal.size()?.height;
+    let mut index: u64 = 0;
+    let mut current_line_start_index: u64 = 0;
+    let mut chars: Vec<char> = Vec::new();
 
-            //debug
+    'main_loop: loop {
+        while let Event::Key(KeyEvent { code, modifiers, kind, .. }) = event::read()? {
             if modifiers == KeyModifiers::CONTROL && code == KeyCode::Char('q') {
-                // app.lines.push(String::from(&app.current));
                 break 'main_loop;
-            };
+            }
+
+            let (x, y) = terminal.get_cursor()?;
+            let x_last = x == terminal_width_buffer - 1;
+            let y_last = y == terminal_height_buffer - 1;
 
             match code {
                 KeyCode::Char(c) => {
-                    app.input(&c, &terminal);
+                    if x_last && y_last { execute!(stdout(), ScrollUp(1)); };
+                    if x_last { execute!(stdout(), MoveToNextLine(1)); };
+                    execute!(stdout(), Print(c));
                 },
                 KeyCode::Enter => {
-                    app.new_line(&terminal);
+                    if y_last { execute!(stdout(), ScrollUp(1)); };
+                    execute!(stdout(), MoveToNextLine(1));
+                },
+                KeyCode::Left => {
+                    if x == 0 { execute!(stdout(), MoveToPreviousLine(1)); } else { execute!(stdout(), MoveLeft(1)); };
+                },
+                KeyCode::Right => {
+                    if x_last {
+                        if y_last { execute!(stdout(), ScrollUp(1)); }
+                        execute!(stdout(), MoveToNextLine(1));
+                    } else { execute!(stdout(), MoveRight(1)); };
                 },
                 KeyCode::Backspace => {
-                    app.delete(&terminal);
+                    //
                 },
-                _ => ()
+                _ => (),
             }
         }
     }
-
-    execute!(stdout(), LeaveAlternateScreen)?; // in debug, disable.
+    execute!(stdout(), LeaveAlternateScreen);
     disable_raw_mode()?;
-    app.lines.push(String::from(&app.current));
-
-    //debug
-    dbg!(&app.lines);
-    dbg!(&app.lines.len());
-    dbg!(&terminal.size().unwrap());
-    dbg!(&app.current);
-    dbg!(&app.y);
-    dbg!(&app.folded_list);
-    dbg!(&app.expand_folds());
-
     Ok(())
 }
-
-
-
