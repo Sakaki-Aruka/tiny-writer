@@ -70,19 +70,24 @@ fn main() -> Result<()> {
                     };
                 },
                 KeyCode::Right => {
-                    if app.chars.len() <= app.index as usize { continue; };
-                    let chars_after_cursor : Option<String> = app.get_chars_after_cursor(&width, &x);
-                    if x_last || chars_after_cursor.is_none() {
-                        if y_last {
-                            execute!(stdout(), ScrollUp(1));
-                        }
-                        execute!(stdout(), MoveToNextLine(1));
+                    let next : Option<&char> = app.chars.get(app.index as usize);
+                    if next.is_none() { continue; };
+                    let next : char = *next.unwrap();
+                    let next_is_lf : bool = next == '\n';
+                    if x_last || next_is_lf {
                         app.index += 1;
+                        if y_last { execute!(stdout(), ScrollUp(1)); }
+                        execute!(stdout(), MoveToNextLine(1));
+                        if next_is_lf { continue; };
+                        let next : String = app.get_element_after_cursor(&width, &x).unwrap();
+                        execute!(stdout(), Print(&next));
+                        let len : u16 = next.len() as u16;
+                        execute!(stdout(), MoveLeft(len));
                     } else {
                         execute!(stdout(), MoveRight(1));
                         app.index += 1;
                     };
-                },
+                }
                 KeyCode::Backspace => {
                     //
                 },

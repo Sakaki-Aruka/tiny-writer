@@ -40,22 +40,16 @@ impl App {
         Some(result)
     }
 
-    pub fn get_chars_after_cursor(&self, width : &u16, x : &u16) -> Option<String> {
-        if *width <= *x + 1 { return None; };
-        let limit : u16 = *width - *x - 1;
-        let mut current : u16 = self.index as u16;
+    pub fn get_element_after_cursor(&self, width : &u16, x : &u16) -> Option<String> {
+        let remaining : usize = (*width - *x) as usize;
+        if remaining <= 1 { return None; };
         let mut result : String = String::new();
-        for diff in 1..= min((*width - limit) as usize, self.chars.len() - self.index as usize) {
-            let index : usize = current as usize;
-            if index >= self.chars.len() { break; };
-
-            //debug
-            let c : char = *self.chars.get(index).expect(format!("index={}, limit={}, loop_end={}, diff={}", &index, &limit, &(*width-limit), &diff).as_str());
-
-            //let c : char = *self.chars.get(index).unwrap();
-            if c == '\n' { break;} ;
+        for diff in 0..remaining {
+            if self.index + diff as u64 >= self.chars.len() as u64 { break; };
+            let index : usize = self.index as usize + diff;
+            let c : char = *self.chars.get(index).unwrap();
+            if c == '\n' { break; };
             result.push(c);
-            current += 1;
         }
 
         if result.is_empty() { None } else { Some(result) }
