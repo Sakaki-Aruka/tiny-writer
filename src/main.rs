@@ -70,19 +70,24 @@ fn main() -> Result<()> {
                     };
                 },
                 KeyCode::Right => {
-                    let next : Option<&char> = app.chars.get(app.index as usize);
-                    if next.is_none() { continue; };
-                    let next : char = *next.unwrap();
-                    let next_is_lf : bool = next == '\n';
-                    if x_last || next_is_lf {
+                    let current: Option<&char> = app.chars.get(app.index as usize);
+                    if current.is_none() { continue; };
+                    let current: char = *current.unwrap();
+                    let current_is_lf: bool = current == '\n';
+
+                    let next : Option<&char> = app.chars.get((app.index + 1) as usize);
+                    let next_is_lf : bool =
+                        if next.is_none() { true } else { *next.unwrap() == '\n' };
+
+                    if x_last || current_is_lf {
                         app.index += 1;
                         if y_last { execute!(stdout(), ScrollUp(1)); }
                         execute!(stdout(), MoveToNextLine(1));
-                        if next_is_lf { continue; };
-                        let next : String = app.get_element_after_cursor(&width, &x).unwrap();
-                        execute!(stdout(), Print(&next));
-                        let len : u16 = next.len() as u16;
-                        execute!(stdout(), MoveLeft(len));
+                        let displays : String = app.get_element_after_cursor(&width, &x).unwrap_or(String::from(""));
+                        if displays.is_empty() { continue; };
+                        execute!(stdout(), Clear(ClearType::CurrentLine), Print(&displays));
+                        let y : u16 = terminal.get_cursor().unwrap().1;
+                        execute!(stdout(), MoveTo(0, y));
                     } else {
                         execute!(stdout(), MoveRight(1));
                         app.index += 1;
