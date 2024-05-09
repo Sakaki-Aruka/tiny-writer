@@ -56,11 +56,20 @@ impl App {
         self.chars.insert(if self.index == -1 { 0 } else { self.index as usize }, '\n');
         self.index += 1;
         let has_more: bool = self.index != self.chars.len() as i64 - 1;
-        if y < height - 1 && !has_more {
+        let bottom: bool = y >= height - 1;
+        if !bottom && !has_more {
             execute!(stdout(), MoveToNextLine(1));
             return;
         }
 
+        if bottom {
+            execute!(stdout(), ScrollUp(1));
+            if !has_more {
+                execute!(stdout(), MoveToNextLine(1));
+                return;
+            }
+            self.render_after_cursor(terminal, has_more);
+        }
     }
 
     pub fn input(&mut self, c: &char, terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
@@ -91,15 +100,6 @@ impl App {
     }
 
     pub fn page_up(&mut self, terminal : &mut Terminal<CrosstermBackend<Stdout>>) {
-        let x : u16 = terminal.get_cursor().unwrap().0;
-        let y : u16 = terminal.get_cursor().unwrap().1;
-        execute!(stdout(), ScrollDown(1));
-        let after_chars : Option<Vec<char>> = self.get_chars_to_the_next_enter();
-        if after_chars.is_none() {
-            execute!(stdout(), MoveTo(0, y), MoveToNextLine(1));
-            return;
-        }
-        self.rendering_after_cursor(terminal);
     }
 
     pub fn page_down(&mut self, terminal : &Terminal<CrosstermBackend<Stdout>>) {

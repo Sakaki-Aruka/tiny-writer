@@ -44,7 +44,10 @@ fn main() -> Result<()> {
                     app.page_up(&mut terminal);
                 }, KeyCode::Down => {
                     app.page_down(&mut terminal);
-                }, _ => ()
+                }, KeyCode::Enter => {
+                    app.enter(&mut terminal);
+                },
+                _ => ()
             }
         }
     }
